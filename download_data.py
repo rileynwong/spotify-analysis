@@ -2,6 +2,8 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import spotipy
 import json
 import csv
+import pylyrics3
+from nltk.sentiment.vader import SentimentIntensityAnalyzer as SIA
 
 
 def get_features(track_id):
@@ -17,6 +19,7 @@ def get_features(track_id):
 
 client_credentials_manager = SpotifyClientCredentials()
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+sentiment_analyzer = SIA()
 
 # IDs of monthly playlists from November 2016 to November 2017
 playlist_ids = [
@@ -64,7 +67,7 @@ data_file = open('data.csv','w')
 writer = csv.writer(data_file)
 
 # Write header
-writer.writerow(['track_id', 'playlist_id', 'date_added', 'track_name', 'first_artist'] + feature_names)
+writer.writerow(['track_id', 'playlist_id', 'date_added', 'track_name', 'first_artist'] + feature_names + ['lyrics', 'neg', 'neu', 'pos', 'compound'])
 
 for playlist_id in playlist_ids:
     print('Querying playlist: ' + str(playlist_id))
@@ -90,7 +93,26 @@ for playlist_id in playlist_ids:
             # Track features
             features = get_features(track_id)
 
-            writer.writerow([track_id, playlist_id, date_added, track_name, first_artist] + features)
+            # Try to get lyrics, if available
+            lyrics = ''
+            try:
+                lyrics = pylyrics3.get_song_lyrics(first_artist, track_name)
+            except:
+                pass
+
+            # Sentiment Analysis
+            neg = None
+            neu = None
+            pos = None
+            compound = None
+            if lyrics:
+                snt = sentiment_analyzer.polarity_scores(lyrics)
+                neg = snt['neg']
+                neu = snt['neu']
+                pos = snt['pos']
+                compound = snt['compound']
+
+            writer.writerow([track_id, playlist_id, date_added, track_name, first_artist] + features + [lyrics] + [neg, neu, pos, compound])
 
         # Special case: API limit is 100 tracks, so we need a second request
         # for playlists that have over 100 tracks
