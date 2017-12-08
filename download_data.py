@@ -64,24 +64,40 @@ data_file = open('data.csv','w')
 writer = csv.writer(data_file)
 
 # Write header
-writer.writerow(['track_id', 'date_added'] + feature_names)
+writer.writerow(['track_id', 'playlist_id', 'date_added', 'track_name', 'first_artist'] + feature_names)
 
 for playlist_id in playlist_ids:
+    print('Querying playlist: ' + str(playlist_id))
 
-    # Query Spotify API
-    results = sp.user_playlist(username, playlist_id)
-    json_results = json.dumps(results, indent=4)
-    data = json.loads(json_results)
+    repeat_query = True
+    offset_n = 0
+    for i in range(2):
+        # Query Spotify API
+        if i > 0:
+            print('Repeating query')
+            offset_n += 100
+        results = sp.user_playlist_tracks(username, playlist_id, offset=offset_n)
+        json_results = json.dumps(results)
+        data = json.loads(json_results)
 
-    # Write rows
-    for track in data['tracks']['items']:
-        track_id = track['track']['id']
-        date_added = track['added_at']
+        # Write rows
+        for track in data['items']:
+            track_id = track['track']['id']
+            date_added = track['added_at']
+            track_name = track['track']['name']
+            first_artist = track['track']['artists'][0]['name']
 
-        # Track features
-        features = get_features(track_id)
+            # Track features
+            features = get_features(track_id)
 
-        writer.writerow([track_id, date_added] + features)
+            writer.writerow([track_id, playlist_id, date_added, track_name, first_artist] + features)
+
+        # Special case: API limit is 100 tracks, so we need a second request
+        # for playlists that have over 100 tracks
+        if data['total'] < 100:
+            break
+
+    print('Done querying')
 
 data_file.close()
 
