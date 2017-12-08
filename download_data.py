@@ -3,6 +3,18 @@ import spotipy
 import json
 import csv
 
+
+def get_features(track_id):
+    features_results = sp.audio_features([track_id])
+    json_features = json.dumps(features_results)
+    features_data = json.loads(json_features)
+
+    # Convert features dictionary to a list
+    features_list = list(features_data[0].values())
+
+    return features_list
+
+
 client_credentials_manager = SpotifyClientCredentials()
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
@@ -23,32 +35,53 @@ playlist_ids = [
     "7pRnKuQMkmntEj7Nnj94r0"
 ]
 
+# Audio features
+feature_names = [
+  "danceability",
+  "energy",
+  "key",
+  "loudness",
+  "mode",
+  "speechiness",
+  "acousticness",
+  "instrumentalness",
+  "liveness",
+  "valence",
+  "tempo",
+  "type",
+  "id",
+  "uri",
+  "track_href",
+  "analysis_url",
+  "duration_ms",
+  "time_signature"
+]
+
 username = '1240951381'
-playlist_id = playlist_ids[0]
 
-### Query Spotify API
-results = sp.user_playlist(username, playlist_id)
-json_results = json.dumps(results, indent=4)
-# print(json_results)
-data = json.loads(json_results)
-print("hey")
-print(data['tracks'])
-print(type(data['tracks']))
+### Write data to CSV file
+data_file = open('data.csv','w')
+writer = csv.writer(data_file)
 
-### Download data as CSV file
-# json_parsed = json.loads(results)
+# Write header
+writer.writerow(['track_id', 'date_added'] + feature_names)
 
-# Parse JSON
-save_data = open('data.csv','w')
-writer = csv.writer(save_data)
+for playlist_id in playlist_ids:
 
-count = 0
-for key, value in data.items():
-    if count == 0:
-        header = key
-        writer.writerow(header)
-        count += 1
-    writer.writerow(str(value))
+    # Query Spotify API
+    results = sp.user_playlist(username, playlist_id)
+    json_results = json.dumps(results, indent=4)
+    data = json.loads(json_results)
 
-save_data.close()
+    # Write rows
+    for track in data['tracks']['items']:
+        track_id = track['track']['id']
+        date_added = track['added_at']
+
+        # Track features
+        features = get_features(track_id)
+
+        writer.writerow([track_id, date_added] + features)
+
+data_file.close()
 
